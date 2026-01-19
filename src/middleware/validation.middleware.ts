@@ -253,6 +253,14 @@ export const validateVerifyOTP = [
     .withMessage('Type must be password-reset, email-verification, or generic'),
 ];
 
+export const validateSyncFinanceReserve = [
+  body('date')
+    .optional()
+    .trim()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('Date must be in yyyy-mm-dd format'),
+];
+
 export const handleValidationErrors = (
   req: Request,
   res: Response,

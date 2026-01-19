@@ -1,4 +1,5 @@
 import app, { initializeConnections } from './app';
+import { startSyncScheduler, stopSyncScheduler } from './services/scheduler.service';
 
 const PORT = process.env.PORT || 3000;
 
@@ -7,6 +8,9 @@ const startServer = async (): Promise<void> => {
   try {
     // Initialize database connections
     await initializeConnections();
+
+    // Start sync scheduler (runs daily at 07:15 AM Dubai time)
+    startSyncScheduler();
 
     // Start Express server
     const server = app.listen(PORT, () => {
@@ -18,6 +22,9 @@ const startServer = async (): Promise<void> => {
     // Graceful shutdown
     const gracefulShutdown = (signal: string) => {
       console.log(`\n${signal} received. Starting graceful shutdown...`);
+      
+      // Stop scheduler first
+      stopSyncScheduler();
       
       server.close(() => {
         console.log('✅ HTTP server closed');

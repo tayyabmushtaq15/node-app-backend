@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import passwordRoutes from './routes/password.routes';
 import otpRoutes from './routes/otp.routes';
+import financeReserveRoutes from './routes/financeReserve.routes';
 import { sendErrorResponse } from './utils/errors';
 
 const app: Application = express();
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/password', passwordRoutes);
 app.use('/api/otp', otpRoutes);
+app.use('/api/finance-reserve', financeReserveRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
