@@ -1,4 +1,4 @@
-;import Entity from '../models/entities.model';
+import Entity from '../models/entities.model';
 import connectDB from '../config/database';
 
 const entities = [

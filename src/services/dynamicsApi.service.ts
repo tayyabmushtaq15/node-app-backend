@@ -118,6 +118,156 @@ export const getBankGroupSummaryWithRetry = async (
   return null;
 };
 
+/*                              PAIDOUT API CALL                              */
+
+export const getPaidoutSummary = async (
+  token: string,
+  fromDate: Date,
+  toDate: Date,
+  dataAreaId?: string
+): Promise<any[] | null> => {
+  try {
+    if (!config.paidoutApiUrl) {
+      throw new Error('MS_PAIDOUT_URL not configured');
+    }
+
+    const formatDate = (date: Date): string => {
+      return date.toISOString().split('.')[0] + 'Z';
+    };
+
+    const body: any = {
+      _contract: {
+        FromDate: formatDate(fromDate),
+        ToDate: formatDate(toDate),
+        ...(dataAreaId ? { DataAreaId: dataAreaId } : {}),
+      },
+    };
+
+    const response = await dynamicsAxios.post(
+      config.paidoutApiUrl,
+      body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    // Extract response data - handle both Response and Reponse (typo in API)
+    const result = response.data?.Response || response.data?.Reponse || [];
+    
+    return Array.isArray(result) ? result : [];
+  } catch (error) {
+    const err = error as AxiosError;
+
+    // Handle 500 errors gracefully (NullReferenceException from API)
+    if (err.response?.status === 500) {
+      console.warn(
+        `⚠️ API returned 500 (NullReferenceException) for ${dataAreaId || 'ALL'} — skipping`
+      );
+      return [];
+    }
+
+    // Retry only on server/network issues
+    if (err.response && err.response.status < 500) {
+      return null;
+    }
+
+    throw error;
+  }
+};
+
+/*                              PAIDOUT RETRY WRAPPER                         */
+
+export const getPaidoutSummaryWithRetry = async (
+  token: string,
+  fromDate: Date,
+  toDate: Date,
+  dataAreaId?: string,
+  maxRetries = 3
+): Promise<any[] | null> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await getPaidoutSummary(token, fromDate, toDate, dataAreaId);
+    } catch {
+      if (attempt === maxRetries) return null;
+      await new Promise(r => setTimeout(r, attempt * 2000));
+    }
+  }
+  return null;
+};
+
+/*                              PROCUREMENT API CALL                           */
+
+export const getProcurementData = async (
+  token: string,
+  fromDate: string,
+  toDate: string,
+  dataAreaId?: string
+): Promise<any[] | null> => {
+  try {
+    if (!config.paidoutApiUrl) {
+      throw new Error('MS_PAIDOUT_URL not configured');
+    }
+
+    const body: any = {
+      _request: {
+        fromDate,
+        toDate,
+        ...(dataAreaId ? { DataAreaId: dataAreaId } : {}),
+      },
+    };
+
+    const response = await dynamicsAxios.post(
+      config.paidoutApiUrl,
+      body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    // Extract response data - handle Responses array (capital R)
+    const result = response.data?.Responses || [];
+    
+    return Array.isArray(result) ? result : [];
+  } catch (error) {
+    const err = error as AxiosError;
+
+    // Retry only on server/network issues
+    if (err.response && err.response.status < 500) {
+      return null;
+    }
+
+    throw error;
+  }
+};
+
+/*                              PROCUREMENT RETRY WRAPPER                      */
+
+export const getProcurementDataWithRetry = async (
+  token: string,
+  fromDate: string,
+  toDate: string,
+  dataAreaId?: string,
+  maxRetries = 3
+): Promise<any[] | null> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await getProcurementData(token, fromDate, toDate, dataAreaId);
+    } catch {
+      if (attempt === maxRetries) return null;
+      await new Promise(r => setTimeout(r, attempt * 2000));
+    }
+  }
+  return null;
+};
+
 /*                              PUBLIC TOKEN API                               */
 
 

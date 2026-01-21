@@ -1,7 +1,64 @@
 import cron from 'node-cron';
 import { syncFinanceReserveData } from './financeReserveSync.service';
+import { syncYesterdayCollectionData } from './sales-collection.service';
+import { syncYesterdayRevenueData } from './revenue-reservation.service';
+import { syncProcurementData } from './procurement-sync.service';
+import { syncExpensePaidoutData } from './expense-paidout-sync.service';
+
+interface SyncResult {
+  name: string;
+  success: boolean;
+  duration: number;
+  recordsSaved?: number;
+  recordsSkipped?: number;
+  entitiesProcessed?: number;
+  errors: string[];
+}
 
 let syncJob: cron.ScheduledTask | null = null;
+
+/**
+ * Log summary of all sync results
+ */
+const logSyncSummary = (results: SyncResult[], overallStartTime: Date): void => {
+  const overallEndTime = new Date();
+  const totalDuration = Math.round((overallEndTime.getTime() - overallStartTime.getTime()) / 1000);
+  
+  const successful = results.filter((r) => r.success);
+  const failed = results.filter((r) => !r.success);
+  const totalRecordsSaved = results.reduce((sum, r) => sum + (r.recordsSaved || 0), 0);
+  
+  console.log('\n' + '='.repeat(60));
+  console.log('📊 SYNC SUMMARY');
+  console.log('='.repeat(60));
+  console.log(`⏱️  Total Duration: ${totalDuration}s`);
+  console.log(`✅ Successful: ${successful.length}/${results.length}`);
+  console.log(`❌ Failed: ${failed.length}/${results.length}`);
+  console.log(`📝 Total Records Saved: ${totalRecordsSaved.toLocaleString()}`);
+  console.log('-'.repeat(60));
+  
+  results.forEach((result) => {
+    const status = result.success ? '✅' : '❌';
+    const recordsInfo = result.recordsSaved !== undefined 
+      ? `Records: ${result.recordsSaved.toLocaleString()}` 
+      : result.entitiesProcessed !== undefined 
+        ? `Entities: ${result.entitiesProcessed}, Records: ${(result.recordsSaved || 0).toLocaleString()}`
+        : '';
+    
+    console.log(`${status} ${result.name.padEnd(25)} | ${result.duration}s | ${recordsInfo}`);
+    
+    if (result.errors.length > 0) {
+      result.errors.slice(0, 3).forEach((error) => {
+        console.log(`   ⚠️  ${error}`);
+      });
+      if (result.errors.length > 3) {
+        console.log(`   ... and ${result.errors.length - 3} more errors`);
+      }
+    }
+  });
+  
+  console.log('='.repeat(60) + '\n');
+};
 
 /**
  * Start the sync scheduler
@@ -11,37 +68,190 @@ export const startSyncScheduler = (): void => {
   // Cron expression: 15 7 * * * (07:15 AM daily)
   // Timezone: Asia/Dubai
   syncJob = cron.schedule(
-    '52 17 * * *',
+    '55 15 * * *',
     async () => {
-      const startTime = new Date();
-      console.log(`\n🕐 Scheduled sync started at ${startTime.toISOString()} (Dubai time: ${startTime.toLocaleString('en-US', { timeZone: 'Asia/Dubai' })})`);
+      const overallStartTime = new Date();
+      console.log(`\n🕐 Scheduled sync started at ${overallStartTime.toISOString()} (Dubai time: ${overallStartTime.toLocaleString('en-US', { timeZone: 'Asia/Dubai' })})`);
       
+      const results: SyncResult[] = [];
+      
+      // Sync 1: Finance Reserve
+      let syncStartTime = new Date();
       try {
+        syncStartTime = new Date();
+        console.log('\n📊 Starting Finance Reserve sync...');
         const result = await syncFinanceReserveData();
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
         
-        const endTime = new Date();
-        const duration = Math.round((endTime.getTime() - startTime.getTime()) / 1000);
+        results.push({
+          name: 'Finance Reserve',
+          success: result.success,
+          duration,
+          recordsSaved: result.recordsSaved,
+          entitiesProcessed: result.entitiesProcessed,
+          errors: result.errors,
+        });
         
         if (result.success) {
-          console.log(`✅ Scheduled sync completed successfully in ${duration}s`);
-          console.log(`   Entities processed: ${result.entitiesProcessed}`);
-          console.log(`   Records saved: ${result.recordsSaved}`);
-          if (result.errors.length > 0) {
-            console.log(`   ⚠️  Errors: ${result.errors.length}`);
-            result.errors.forEach((error) => console.log(`      - ${error}`));
-          }
+          console.log(`✅ Finance Reserve sync completed in ${duration}s`);
         } else {
-          console.error(`❌ Scheduled sync completed with errors in ${duration}s`);
-          console.error(`   Entities processed: ${result.entitiesProcessed}`);
-          console.error(`   Records saved: ${result.recordsSaved}`);
-          result.errors.forEach((error) => console.error(`   - ${error}`));
+          console.error(`❌ Finance Reserve sync completed with errors in ${duration}s`);
         }
       } catch (error: any) {
-        const endTime = new Date();
-        const duration = Math.round((endTime.getTime() - startTime.getTime()) / 1000);
-        console.error(`❌ Scheduled sync failed after ${duration}s:`, error.message || error);
-        // Don't throw - let scheduler continue running
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        console.error(`❌ Finance Reserve sync failed after ${duration}s:`, error.message || error);
+        results.push({
+          name: 'Finance Reserve',
+          success: false,
+          duration,
+          errors: [error.message || 'Unknown error'],
+        });
       }
+      
+      // Sync 2: Sales Collection
+      syncStartTime = new Date();
+      try {
+        syncStartTime = new Date();
+        console.log('\n📊 Starting Sales Collection sync...');
+        const result = await syncYesterdayCollectionData();
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        
+        results.push({
+          name: 'Sales Collection',
+          success: result.success,
+          duration,
+          recordsSaved: result.recordsSaved,
+          recordsSkipped: result.recordsSkipped,
+          errors: result.errors,
+        });
+        
+        if (result.success) {
+          console.log(`✅ Sales Collection sync completed in ${duration}s`);
+        } else {
+          console.error(`❌ Sales Collection sync completed with errors in ${duration}s`);
+        }
+      } catch (error: any) {
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        console.error(`❌ Sales Collection sync failed after ${duration}s:`, error.message || error);
+        results.push({
+          name: 'Sales Collection',
+          success: false,
+          duration,
+          errors: [error.message || 'Unknown error'],
+        });
+      }
+      
+      // Sync 3: Revenue Reservation
+      syncStartTime = new Date();
+      try {
+        syncStartTime = new Date();
+        console.log('\n📊 Starting Revenue Reservation sync...');
+        const result = await syncYesterdayRevenueData();
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        
+        results.push({
+          name: 'Revenue Reservation',
+          success: result.success,
+          duration,
+          recordsSaved: result.recordsSaved,
+          recordsSkipped: result.recordsSkipped,
+          errors: result.errors,
+        });
+        
+        if (result.success) {
+          console.log(`✅ Revenue Reservation sync completed in ${duration}s`);
+        } else {
+          console.error(`❌ Revenue Reservation sync completed with errors in ${duration}s`);
+        }
+      } catch (error: any) {
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        console.error(`❌ Revenue Reservation sync failed after ${duration}s:`, error.message || error);
+        results.push({
+          name: 'Revenue Reservation',
+          success: false,
+          duration,
+          errors: [error.message || 'Unknown error'],
+        });
+      }
+      
+      // Sync 4: Procurement
+      syncStartTime = new Date();
+      try {
+        syncStartTime = new Date();
+        console.log('\n📊 Starting Procurement sync...');
+        const result = await syncProcurementData();
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        
+        results.push({
+          name: 'Procurement',
+          success: result.success,
+          duration,
+          recordsSaved: result.recordsSaved,
+          recordsSkipped: result.recordsSkipped,
+          errors: result.errors,
+        });
+        
+        if (result.success) {
+          console.log(`✅ Procurement sync completed in ${duration}s`);
+        } else {
+          console.error(`❌ Procurement sync completed with errors in ${duration}s`);
+        }
+      } catch (error: any) {
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        console.error(`❌ Procurement sync failed after ${duration}s:`, error.message || error);
+        results.push({
+          name: 'Procurement',
+          success: false,
+          duration,
+          errors: [error.message || 'Unknown error'],
+        });
+      }
+      
+      // Sync 5: Expense Paidout (sync last 30 days)
+      syncStartTime = new Date();
+      try {
+        syncStartTime = new Date();
+        console.log('\n📊 Starting Expense Paidout sync (30 days)...');
+        const result = await syncExpensePaidoutData(30);
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        
+        results.push({
+          name: 'Expense Paidout',
+          success: result.success,
+          duration,
+          recordsSaved: result.recordsSaved,
+          entitiesProcessed: result.entitiesProcessed,
+          errors: result.errors,
+        });
+        
+        if (result.success) {
+          console.log(`✅ Expense Paidout sync completed in ${duration}s`);
+        } else {
+          console.error(`❌ Expense Paidout sync completed with errors in ${duration}s`);
+        }
+      } catch (error: any) {
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        console.error(`❌ Expense Paidout sync failed after ${duration}s:`, error.message || error);
+        results.push({
+          name: 'Expense Paidout',
+          success: false,
+          duration,
+          errors: [error.message || 'Unknown error'],
+        });
+      }
+      
+      // Log summary
+      logSyncSummary(results, overallStartTime);
     },
     {
       scheduled: true,

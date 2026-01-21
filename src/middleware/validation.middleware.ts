@@ -261,6 +261,55 @@ export const validateSyncFinanceReserve = [
     .withMessage('Date must be in yyyy-mm-dd format'),
 ];
 
+export const validateSyncExpensePaidout = [
+  body('days')
+    .optional()
+    .isInt({ min: 1, max: 90 })
+    .withMessage('Days must be an integer between 1 and 90'),
+];
+
+export const validateSyncSalesCollection = [
+  body('fromDate')
+    .trim()
+    .notEmpty()
+    .withMessage('fromDate is required')
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('fromDate must be in YYYY-MM-DD format'),
+  body('toDate')
+    .trim()
+    .notEmpty()
+    .withMessage('toDate is required')
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('toDate must be in YYYY-MM-DD format')
+    .custom((value, { req }) => {
+      if (req.body.fromDate && value && new Date(value) < new Date(req.body.fromDate)) {
+        throw new Error('toDate must be greater than or equal to fromDate');
+      }
+      return true;
+    }),
+];
+
+export const validateSyncRevenueReservation = [
+  body('fromDate')
+    .trim()
+    .notEmpty()
+    .withMessage('fromDate is required')
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('fromDate must be in YYYY-MM-DD format'),
+  body('toDate')
+    .trim()
+    .notEmpty()
+    .withMessage('toDate is required')
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('toDate must be in YYYY-MM-DD format')
+    .custom((value, { req }) => {
+      if (req.body.fromDate && value && new Date(value) < new Date(req.body.fromDate)) {
+        throw new Error('toDate must be greater than or equal to fromDate');
+      }
+      return true;
+    }),
+];
+
 export const handleValidationErrors = (
   req: Request,
   res: Response,
