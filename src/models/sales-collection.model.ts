@@ -73,20 +73,15 @@ const salesCollectionSchema = new Schema<ISalesCollection>(
   }
 );
 
+// Compound index to ensure uniqueness (matching old API implementation)
 salesCollectionSchema.index(
-  { specialType: 1, date: 1 },
-  { 
-    unique: true, 
-    partialFilterExpression: { specialType: { $ne: null } } 
-  }
+  { entity: 1, project: 1, specialType: 1, date: -1 },
+  { unique: true }
 );
 
 // Indexes for faster queries
-salesCollectionSchema.index({ date: 1 });
-salesCollectionSchema.index({ entity: 1, date: 1 });
-salesCollectionSchema.index({ project: 1, date: 1 });
+salesCollectionSchema.index({ date: -1 });
 salesCollectionSchema.index({ dataSource: 1 });
-salesCollectionSchema.index({ specialType: 1 });
 
 const SalesCollection = mongoose.model<ISalesCollection>(
   'SalesCollection',

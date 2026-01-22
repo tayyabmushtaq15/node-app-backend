@@ -4,15 +4,7 @@ import cors from 'cors';
 import connectDB from './config/database';
 import { connectRedis } from './config/redis';
 import { verifyEmailConnection } from './config/email';
-import authRoutes from './routes/auth.routes';
-import userRoutes from './routes/user.routes';
-import passwordRoutes from './routes/password.routes';
-import otpRoutes from './routes/otp.routes';
-import financeReserveRoutes from './routes/financeReserve.routes';
-import expensePaidoutRoutes from './routes/expensePaidout.routes';
-import procurementRoutes from './routes/procurement.routes';
-import salesCollectionRoutes from './routes/salesCollection.routes';
-import revenueReservationRoutes from './routes/revenue-reservation.routes';
+import { routes } from './routes';
 import { sendErrorResponse } from './utils/errors';
 
 const app: Application = express();
@@ -35,15 +27,9 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/password', passwordRoutes);
-app.use('/api/otp', otpRoutes);
-app.use('/api/finance-reserve', financeReserveRoutes);
-app.use('/api/expense-paidout', expensePaidoutRoutes);
-app.use('/api/procurement', procurementRoutes);
-app.use('/api/sales-collection', salesCollectionRoutes);
-app.use('/api/revenue-reservation', revenueReservationRoutes);
+routes.forEach((route) => {
+  app.use(route.path, route.router);
+});
 
 // 404 handler
 app.use((req: Request, res: Response) => {

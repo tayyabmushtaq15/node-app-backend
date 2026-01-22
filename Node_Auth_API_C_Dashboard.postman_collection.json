@@ -1,0 +1,1358 @@
+{
+	"info": {
+		"name": "Node Auth API",
+		"description": "Complete API collection for Node.js Authentication System with OTP, Password Reset, User Management, Finance Reserve, Expense Paidout, Procurement, Sales Collection, Revenue Reservation, Instagram Insights, and Google Reviews",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "node-auth-api"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.token) {",
+									"        pm.environment.set('auth_token', jsonData.data.token);",
+									"        pm.environment.set('user_id', jsonData.data.user.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"johndoe\",\n    \"email\": \"john@example.com\",\n    \"password\": \"password123\",\n    \"role\": \"user\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "register"]
+						},
+						"description": "Register a new user. OTP will be sent to email for verification."
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.token) {",
+									"        pm.environment.set('auth_token', jsonData.data.token);",
+									"        pm.environment.set('user_id', jsonData.data.user.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						},
+						"description": "Login with email and password. Returns JWT token."
+					}
+				},
+				{
+					"name": "Verify Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/verify-email",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "verify-email"]
+						},
+						"description": "Verify email address with OTP received after registration."
+					}
+				},
+				{
+					"name": "Resend Verification Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/resend-verification",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "resend-verification"]
+						},
+						"description": "Resend email verification OTP."
+					}
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get All Users (Admin Only)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users?page=1&limit=10&sortBy=createdAt&sortOrder=desc",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt",
+									"description": "Field to sort by (username, email, createdAt, etc.)"
+								},
+								{
+									"key": "sortOrder",
+									"value": "desc",
+									"description": "Sort order: asc or desc"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search in username, email, firstName, lastName",
+									"disabled": true
+								},
+								{
+									"key": "role",
+									"value": "",
+									"description": "Filter by role: admin or user",
+									"disabled": true
+								},
+								{
+									"key": "emailVerified",
+									"value": "",
+									"description": "Filter by email verification: true or false",
+									"disabled": true
+								},
+								{
+									"key": "gender",
+									"value": "",
+									"description": "Filter by gender: male, female, or other",
+									"disabled": true
+								},
+								{
+									"key": "city",
+									"value": "",
+									"description": "Filter by city",
+									"disabled": true
+								},
+								{
+									"key": "state",
+									"value": "",
+									"description": "Filter by state",
+									"disabled": true
+								},
+								{
+									"key": "country",
+									"value": "",
+									"description": "Filter by country",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all users with pagination, sorting, search, and filters. Admin only."
+					}
+				},
+				{
+					"name": "Get User By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "{{user_id}}"]
+						},
+						"description": "Get user by ID. Admin can get any user, regular users can only get their own."
+					}
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"age\": 25,\n    \"gender\": \"male\",\n    \"phoneNumber\": \"1234567890\",\n    \"address\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zip\": \"10001\",\n    \"country\": \"USA\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "{{user_id}}"]
+						},
+						"description": "Update user profile. Admin can update any user, regular users can only update their own."
+					}
+				},
+				{
+					"name": "Delete User (Admin Only)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/{{user_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "{{user_id}}"]
+						},
+						"description": "Delete a user. Admin only."
+					}
+				}
+			]
+		},
+		{
+			"name": "Password Reset",
+			"item": [
+				{
+					"name": "Forgot Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Note: Check your email for the OTP code",
+									"// The OTP will be sent to the email address provided"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/password/forgot",
+							"host": ["{{base_url}}"],
+							"path": ["api", "password", "forgot"]
+						},
+						"description": "Request password reset. OTP will be sent to email."
+					}
+				},
+				{
+					"name": "Verify Reset OTP",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.resetToken) {",
+									"        pm.environment.set('reset_token', jsonData.data.resetToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/password/verify-otp",
+							"host": ["{{base_url}}"],
+							"path": ["api", "password", "verify-otp"]
+						},
+						"description": "Verify OTP for password reset. Returns reset token."
+					}
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"newPassword\": \"newSecurePassword123\",\n    \"resetToken\": \"{{reset_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/password/reset",
+							"host": ["{{base_url}}"],
+							"path": ["api", "password", "reset"]
+						},
+						"description": "Reset password using the reset token from verify-otp step."
+					}
+				}
+			]
+		},
+		{
+			"name": "OTP",
+			"item": [
+				{
+					"name": "Generate OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"type\": \"generic\",\n    \"purpose\": \"Account verification\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/otp/generate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "otp", "generate"]
+						},
+						"description": "Generate OTP for any purpose. Types: password-reset, email-verification, generic"
+					}
+				},
+				{
+					"name": "Verify OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"otp\": \"123456\",\n    \"type\": \"generic\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/otp/verify",
+							"host": ["{{base_url}}"],
+							"path": ["api", "otp", "verify"]
+						},
+						"description": "Verify OTP. Types: password-reset, email-verification, generic"
+					}
+				}
+			]
+		},
+		{
+			"name": "Finance Reserve",
+			"item": [
+				{
+					"name": "Sync Finance Reserve (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2024-01-15\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/finance-reserve/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "finance-reserve", "sync"]
+						},
+						"description": "Sync finance reserve data. Date format: YYYY-MM-DD (optional, defaults to yesterday). Admin only."
+					}
+				},
+				{
+					"name": "Get Finance Reserve Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/finance-reserve?page=1&limit=10&entityId=&date=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "finance-reserve"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "entityId",
+									"value": "",
+									"description": "Filter by entity ID",
+									"disabled": true
+								},
+								{
+									"key": "date",
+									"value": "",
+									"description": "Filter by date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get finance reserve data with pagination and filters. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Liquidity Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/finance-reserve/liquidity",
+							"host": ["{{base_url}}"],
+							"path": ["api", "finance-reserve", "liquidity"]
+						},
+						"description": "Get liquidity data for dashboard card. Requires authentication."
+					}
+				},
+				{
+					"name": "Get All Entities",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/finance-reserve/entities",
+							"host": ["{{base_url}}"],
+							"path": ["api", "finance-reserve", "entities"]
+						},
+						"description": "Get all entities. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Entity By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/finance-reserve/entities/:id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "finance-reserve", "entities", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "entity-id-here"
+								}
+							]
+						},
+						"description": "Get entity by ID. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Expense Paidout",
+			"item": [
+				{
+					"name": "Sync Expense Paidout (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"days\": 30\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/expense-paidout/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expense-paidout", "sync"]
+						},
+						"description": "Sync expense paidout data. Days parameter (optional, defaults to 30). Admin only."
+					}
+				},
+				{
+					"name": "Get Expense Paidout Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/expense-paidout?page=1&limit=10&entityId=&fromDate=&toDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expense-paidout"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "entityId",
+									"value": "",
+									"description": "Filter by entity ID",
+									"disabled": true
+								},
+								{
+									"key": "fromDate",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get expense paidout data with pagination and filters. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Expense Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/expense-paidout/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expense-paidout", "summary"]
+						},
+						"description": "Get expense summary. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Expense Category Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/expense-paidout/category-summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expense-paidout", "category-summary"]
+						},
+						"description": "Get expense category summary. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Procurement",
+			"item": [
+				{
+					"name": "Sync Procurement (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/procurement/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "procurement", "sync"]
+						},
+						"description": "Sync procurement purchase order data. Admin only."
+					}
+				},
+				{
+					"name": "Get Procurement Orders",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/procurement?page=1&limit=10&entityId=&status=&fromDate=&toDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "procurement"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "entityId",
+									"value": "",
+									"description": "Filter by entity ID",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "",
+									"description": "Filter by status",
+									"disabled": true
+								},
+								{
+									"key": "fromDate",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get procurement purchase orders with pagination and filters. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Procurement Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/procurement/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "procurement", "summary"]
+						},
+						"description": "Get procurement summary. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Procurement Card Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/procurement/card-data",
+							"host": ["{{base_url}}"],
+							"path": ["api", "procurement", "card-data"]
+						},
+						"description": "Get procurement card data for dashboard. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Procurement Order By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/procurement/:purchId",
+							"host": ["{{base_url}}"],
+							"path": ["api", "procurement", ":purchId"],
+							"variable": [
+								{
+									"key": "purchId",
+									"value": "purchase-order-id-here"
+								}
+							]
+						},
+						"description": "Get procurement purchase order by ID. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Sales Collection",
+			"item": [
+				{
+					"name": "Sync Sales Collection (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fromDate\": \"2024-01-01\",\n    \"toDate\": \"2024-01-31\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/sales-collection/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sales-collection", "sync"]
+						},
+						"description": "Sync sales collection data. Date format: YYYY-MM-DD. Admin only."
+					}
+				},
+				{
+					"name": "Get Sales Collection Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/sales-collection?page=1&limit=10&entityId=&fromDate=&toDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sales-collection"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "entityId",
+									"value": "",
+									"description": "Filter by entity ID",
+									"disabled": true
+								},
+								{
+									"key": "fromDate",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get sales collection data with pagination and filters. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Sales Collection Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/sales-collection/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sales-collection", "summary"]
+						},
+						"description": "Get sales collection summary. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Sales Collection Chart Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/sales-collection/chart-data",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sales-collection", "chart-data"]
+						},
+						"description": "Get sales collection chart data. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Revenue Reservation",
+			"item": [
+				{
+					"name": "Sync Revenue Reservation (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fromDate\": \"2024-01-01\",\n    \"toDate\": \"2024-01-31\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/revenue-reservation/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "revenue-reservation", "sync"]
+						},
+						"description": "Sync revenue reservation data. Date format: YYYY-MM-DD. Admin only."
+					}
+				},
+				{
+					"name": "Get Revenue Reservation Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/revenue-reservation?page=1&limit=10&entityId=&fromDate=&toDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "revenue-reservation"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "entityId",
+									"value": "",
+									"description": "Filter by entity ID",
+									"disabled": true
+								},
+								{
+									"key": "fromDate",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get revenue reservation data with pagination and filters. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Revenue Reservation Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/revenue-reservation/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "revenue-reservation", "summary"]
+						},
+						"description": "Get revenue reservation summary. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Revenue Reservation By Manager",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/revenue-reservation/by-manager",
+							"host": ["{{base_url}}"],
+							"path": ["api", "revenue-reservation", "by-manager"]
+						},
+						"description": "Get revenue reservation data aggregated by manager. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Revenue Reservation By Director",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/revenue-reservation/by-director",
+							"host": ["{{base_url}}"],
+							"path": ["api", "revenue-reservation", "by-director"]
+						},
+						"description": "Get revenue reservation data aggregated by director. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Revenue Reservation By Project",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/revenue-reservation/by-project",
+							"host": ["{{base_url}}"],
+							"path": ["api", "revenue-reservation", "by-project"]
+						},
+						"description": "Get revenue reservation data aggregated by project. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Instagram Insights",
+			"item": [
+				{
+					"name": "Sync Instagram Insights (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/instagram-insights/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "instagram-insights", "sync"]
+						},
+						"description": "Sync Instagram insights data. Admin only."
+					}
+				},
+				{
+					"name": "Get Instagram Insights",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/instagram-insights?page=1&limit=20&entityId=&startDate=&endDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "instagram-insights"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Items per page"
+								},
+								{
+									"key": "entityId",
+									"value": "",
+									"description": "Filter by entity ID",
+									"disabled": true
+								},
+								{
+									"key": "startDate",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "endDate",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get Instagram insights data with pagination and filters. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Instagram Dashboard Stats",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/instagram-insights/dashboard",
+							"host": ["{{base_url}}"],
+							"path": ["api", "instagram-insights", "dashboard"]
+						},
+						"description": "Get Instagram dashboard statistics. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Instagram Trends",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/instagram-insights/trends",
+							"host": ["{{base_url}}"],
+							"path": ["api", "instagram-insights", "trends"]
+						},
+						"description": "Get Instagram trends data. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Google Reviews",
+			"item": [
+				{
+					"name": "Sync Google Reviews (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/google-reviews/sync",
+							"host": ["{{base_url}}"],
+							"path": ["api", "google-reviews", "sync"]
+						},
+						"description": "Sync Google Reviews data. Admin only."
+					}
+				},
+				{
+					"name": "Get Google Reviews",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/google-reviews?page=1&limit=20&from=&to=&minRating=&sortBy=date&sortOrder=desc",
+							"host": ["{{base_url}}"],
+							"path": ["api", "google-reviews"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Items per page"
+								},
+								{
+									"key": "from",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "minRating",
+									"value": "",
+									"description": "Minimum star rating (1-5)",
+									"disabled": true
+								},
+								{
+									"key": "sortBy",
+									"value": "date",
+									"description": "Sort by field (date, starRating, etc.)"
+								},
+								{
+									"key": "sortOrder",
+									"value": "desc",
+									"description": "Sort order: asc or desc"
+								}
+							]
+						},
+						"description": "Get Google Reviews with pagination, filters, and sorting. Requires authentication."
+					}
+				},
+				{
+					"name": "Get Review Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/google-reviews/statistics?from=&to=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "google-reviews", "statistics"],
+							"query": [
+								{
+									"key": "from",
+									"value": "",
+									"description": "Filter from date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"description": "Filter to date (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get review statistics (total reviews, average rating, sentiment breakdown, etc.). Requires authentication."
+					}
+				},
+				{
+					"name": "Get All Google Reviews (Dashboard)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/google-reviews/dashboard",
+							"host": ["{{base_url}}"],
+							"path": ["api", "google-reviews", "dashboard"]
+						},
+						"description": "Get all Google Reviews for dashboard display. Requires authentication."
+					}
+				}
+			]
+		},
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": ["{{base_url}}"],
+					"path": ["health"]
+				},
+				"description": "Check if server is running."
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3004",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "reset_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

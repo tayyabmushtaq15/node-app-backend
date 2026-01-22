@@ -68,7 +68,7 @@ export const startSyncScheduler = (): void => {
   // Cron expression: 15 7 * * * (07:15 AM daily)
   // Timezone: Asia/Dubai
   syncJob = cron.schedule(
-    '55 15 * * *',
+    '45 10 * * *',
     async () => {
       const overallStartTime = new Date();
       console.log(`\n🕐 Scheduled sync started at ${overallStartTime.toISOString()} (Dubai time: ${overallStartTime.toLocaleString('en-US', { timeZone: 'Asia/Dubai' })})`);

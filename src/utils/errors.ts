@@ -19,9 +19,19 @@ export const sendErrorResponse = (res: Response, error: Error | AppError): void 
       message: error.message,
     });
   } else {
+    // Log error details in development mode for debugging
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    if (isDevelopment) {
+      console.error('❌ Internal Server Error:', error);
+      console.error('Error stack:', error.stack);
+    } else {
+      console.error('❌ Internal Server Error:', error.message);
+    }
+
     res.status(500).json({
       success: false,
       message: 'Internal server error',
+      ...(isDevelopment && { error: error.message, stack: error.stack }),
     });
   }
 };

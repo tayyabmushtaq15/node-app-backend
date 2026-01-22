@@ -172,11 +172,12 @@ const transformApiRecord = async (
 
     const entityId = project.entity;
 
+    // For normal records, do NOT include specialType (matching old implementation)
     return {
       ...baseDoc,
       entity: entityId,
       project: projectId,
-      specialType: null,
+      // specialType is not included for normal records
     };
   } catch (error: any) {
     console.error('❌ Error transforming record:', error.message);
@@ -221,9 +222,7 @@ export const syncSalesCollectionData = async (
 
     console.log(`📊 Processing ${records.length} sales collection records...`);
 
-    // Transform and prepare bulk operations
-    const bulkOps: any[] = [];
-
+    // Process records individually (matching old API implementation)
     for (const record of records) {
       try {
         const transformed = await transformApiRecord(record, fromDate);
@@ -233,46 +232,48 @@ export const syncSalesCollectionData = async (
           continue;
         }
 
-        // Build filter based on record type
-        // Must match the unique index structure exactly
-        const filter: any = {
-          date: transformed.date,
-        };
+        // Build filter and update based on record type (matching old API logic)
+        let filter: any;
+        let updateDoc: any;
 
         if (transformed.specialType) {
-          // For special types: use specialType + date (entity and project are null)
-          filter.specialType = transformed.specialType;
-          filter.entity = null;
-          filter.project = null;
+          // CASE 1: GRAND SUMMARY / NO VALUE
+          // Filter: only specialType and date (matching old implementation)
+          filter = {
+            specialType: transformed.specialType,
+            date: transformed.date,
+          };
+
+          // Update: include entity: null, project: null, specialType
+          updateDoc = {
+            ...transformed,
+            entity: null,
+            project: null,
+            specialType: transformed.specialType,
+          };
         } else {
-          // For normal records: use entity + project + date (specialType is null)
-          filter.entity = transformed.entity;
-          filter.project = transformed.project;
-          filter.specialType = null;
+          // CASE 2: NORMAL PROJECT
+          // Filter: entity, project, date (NO specialType in filter - matching old implementation)
+          filter = {
+            entity: transformed.entity,
+            project: transformed.project,
+            date: transformed.date,
+          };
+
+          // Update: include all fields from transformed (specialType is already not included)
+          updateDoc = transformed;
         }
 
-        bulkOps.push({
-          updateOne: {
-            filter,
-            update: { $set: transformed },
-            upsert: true,
-          },
-        });
+        // Use individual updateOne operation (matching old API implementation)
+        await SalesCollection.updateOne(filter, { $set: updateDoc }, { upsert: true });
+
+        result.recordsSaved++;
       } catch (error: any) {
         const errorMsg = `Error processing record: ${error.message}`;
         result.errors.push(errorMsg);
         console.error(`❌ ${errorMsg}`);
         result.recordsSkipped++;
       }
-    }
-
-    // Execute bulk write
-    if (bulkOps.length > 0) {
-      const writeResult = await SalesCollection.bulkWrite(bulkOps, {
-        ordered: false,
-      });
-
-      result.recordsSaved = writeResult.upsertedCount + writeResult.modifiedCount;
     }
 
     console.log(`✅ Sales Collection Sync Completed`);
