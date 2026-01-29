@@ -4,6 +4,7 @@ import { syncYesterdayCollectionData } from './sales-collection.service';
 import { syncYesterdayRevenueData } from './revenue-reservation.service';
 import { syncProcurementData } from './procurement-sync.service';
 import { syncExpensePaidoutData } from './expense-paidout-sync.service';
+import { syncInstagramData } from './instagram-sync.service';
 
 interface SyncResult {
   name: string;
@@ -68,7 +69,7 @@ export const startSyncScheduler = (): void => {
   // Cron expression: 15 7 * * * (07:15 AM daily)
   // Timezone: Asia/Dubai
   syncJob = cron.schedule(
-    '45 10 * * *',
+    '34 11 * * *',
     async () => {
       const overallStartTime = new Date();
       console.log(`\n🕐 Scheduled sync started at ${overallStartTime.toISOString()} (Dubai time: ${overallStartTime.toLocaleString('en-US', { timeZone: 'Asia/Dubai' })})`);
@@ -244,6 +245,40 @@ export const startSyncScheduler = (): void => {
         console.error(`❌ Expense Paidout sync failed after ${duration}s:`, error.message || error);
         results.push({
           name: 'Expense Paidout',
+          success: false,
+          duration,
+          errors: [error.message || 'Unknown error'],
+        });
+      }
+      
+      // Sync 6: Instagram
+      syncStartTime = new Date();
+      try {
+        syncStartTime = new Date();
+        console.log('\n📊 Starting Instagram sync...');
+        const result = await syncInstagramData();
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        
+        results.push({
+          name: 'Instagram',
+          success: result.success,
+          duration,
+          recordsSaved: result.recordsSaved,
+          errors: result.errors,
+        });
+        
+        if (result.success) {
+          console.log(`✅ Instagram sync completed in ${duration}s`);
+        } else {
+          console.error(`❌ Instagram sync completed with errors in ${duration}s`);
+        }
+      } catch (error: any) {
+        const syncEndTime = new Date();
+        const duration = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000);
+        console.error(`❌ Instagram sync failed after ${duration}s:`, error.message || error);
+        results.push({
+          name: 'Instagram',
           success: false,
           duration,
           errors: [error.message || 'Unknown error'],
