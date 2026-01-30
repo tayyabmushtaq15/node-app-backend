@@ -254,8 +254,7 @@ export const startSyncScheduler = (): void => {
       // Sync 6: Instagram
       syncStartTime = new Date();
       try {
-        // syncStartTime = new Date();
-        const syncStartTime = "2026-01-30T00:00:00.000Z";
+        syncStartTime = new Date();
         console.log('\n📊 Starting Instagram sync...');
         await syncInstagramData();
         const syncEndTime = new Date();
