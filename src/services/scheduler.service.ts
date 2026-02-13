@@ -63,13 +63,13 @@ const logSyncSummary = (results: SyncResult[], overallStartTime: Date): void => 
 
 /**
  * Start the sync scheduler
- * Runs daily at 07:15 AM Dubai time (Asia/Dubai)
+ * Runs daily at 09:30 AM Dubai time (Asia/Dubai)
  */
 export const startSyncScheduler = (): void => {
-  // Cron expression: 15 7 * * * (07:15 AM daily)
+  // Cron expression: 30 09 * * * (07:15 AM daily)
   // Timezone: Asia/Dubai
   syncJob = cron.schedule(
-    '34 11 * * *',
+    '30 09 * * *',
     async () => {
       const overallStartTime = new Date();
       console.log(`\n🕐 Scheduled sync started at ${overallStartTime.toISOString()} (Dubai time: ${overallStartTime.toLocaleString('en-US', { timeZone: 'Asia/Dubai' })})`);
@@ -295,14 +295,9 @@ export const startSyncScheduler = (): void => {
   const now = new Date();
   const dubaiTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
   const nextRun = new Date(dubaiTime);
-  nextRun.setHours(7, 15, 0, 0);
+  nextRun.setHours(9, 30, 0, 0);
   
-  // If it's already past 07:15 today, schedule for tomorrow
-  if (dubaiTime.getHours() > 7 || (dubaiTime.getHours() === 7 && dubaiTime.getMinutes() >= 15)) {
-    nextRun.setDate(nextRun.getDate() + 1);
-  }
-  
-  console.log('📅 Sync scheduler started: Daily at 07:15 AM (Dubai time)');
+  console.log('📅 Sync scheduler started: Daily at 09:30 AM (Dubai time)');
   console.log(`   Next scheduled run: ${nextRun.toLocaleString('en-US', { timeZone: 'Asia/Dubai', dateStyle: 'full', timeStyle: 'short' })}`);
 };
 

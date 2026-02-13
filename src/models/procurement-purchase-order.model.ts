@@ -26,6 +26,16 @@ export interface IProcurementPurchaseOrder extends Document {
   getFormattedAmount(): string;
 }
 
+export interface ProcurementPurchaseOrderStatics {
+  getOrdersByVendor(venderAccount: string): mongoose.Query<any[], IProcurementPurchaseOrder>;
+  getOrdersByStatus(status: string): mongoose.Query<any[], IProcurementPurchaseOrder>;
+  getOrdersByApprovalStatus(approvalStatus: string): mongoose.Query<any[], IProcurementPurchaseOrder>;
+  getOrdersByDateRange(startDate: Date, endDate: Date, dataAreaId?: string | null): mongoose.Query<any[], IProcurementPurchaseOrder>;
+  getOrdersByAmountRange(minAmount: number, maxAmount: number): mongoose.Query<any[], IProcurementPurchaseOrder>;
+  getProcurementSummary(dataAreaId: string | null, startDate: Date | null, endDate: Date | null): Promise<any[]>;
+  getProcurementSummary30Days(): Promise<any>;
+}
+
 const procurementPurchaseOrderSchema = new Schema<IProcurementPurchaseOrder>(
   {
     purchId: {
@@ -444,10 +454,10 @@ procurementPurchaseOrderSchema.pre('findOneAndUpdate', function (next) {
   next();
 });
 
-const ProcurementPurchaseOrder = mongoose.model<IProcurementPurchaseOrder>(
+const ProcurementPurchaseOrder = mongoose.model<IProcurementPurchaseOrder, ProcurementPurchaseOrderStatics>(
   'ProcurementPurchaseOrder',
   procurementPurchaseOrderSchema
-);
+) as mongoose.Model<IProcurementPurchaseOrder> & ProcurementPurchaseOrderStatics;
 
 export default ProcurementPurchaseOrder;
 

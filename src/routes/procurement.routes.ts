@@ -5,6 +5,7 @@ import {
   getProcurementOrderById,
   getProcurementSummary,
   getProcurementCardData,
+  getProcurementDetail,
 } from '../controllers/procurement.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireAdmin } from '../middleware/role.middleware';
@@ -22,6 +23,9 @@ router.get('/summary', getProcurementSummary);
 
 // Get procurement card data - Authenticated users (must come before /:purchId)
 router.get('/card-data', getProcurementCardData);
+
+// Get procurement detail with date grouping - Authenticated users (must come before /:purchId)
+router.get('/detail', getProcurementDetail);
 
 // Get procurement purchase orders - Authenticated users
 router.get('/', getProcurementOrders);

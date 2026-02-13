@@ -44,7 +44,7 @@ const entitySchema = new Schema<IEntity>(
 );
 
 // Index for entity_code for faster lookups
-entitySchema.index({ entityCode: 1 });
+// entitySchema.index({ entityCode: 1 });
 
 const Entity = mongoose.model<IEntity>('Entity', entitySchema);
 

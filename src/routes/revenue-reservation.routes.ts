@@ -3,6 +3,7 @@ import {
   syncRevenueReservation,
   getRevenueReservationData,
   getRevenueReservationSummary,
+  getRevenueReservationDetail,
   getRevenueReservationByManager,
   getRevenueReservationByDirector,
   getRevenueReservationByProject,
@@ -33,6 +34,9 @@ router.get('/', getRevenueReservationData);
 
 // Get revenue reservation summary - Authenticated users
 router.get('/summary', getRevenueReservationSummary);
+
+// Get revenue reservation detail with date grouping - Authenticated users
+router.get('/detail', getRevenueReservationDetail);
 
 // Get revenue reservation data aggregated by manager - Authenticated users
 router.get('/by-manager', getRevenueReservationByManager);

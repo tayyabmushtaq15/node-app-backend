@@ -19,7 +19,10 @@ router.post('/sync', requireAdmin, syncInstagramInsights);
 // Get Instagram insights data - Authenticated users
 router.get('/', getInstagramInsights);
 
-// Get dashboard stats - Authenticated users
+// Get summary stats for dashboard card - Authenticated users
+router.get('/summary', getInstagramDashboardStats);
+
+// Get dashboard stats - Authenticated users (legacy endpoint)
 router.get('/dashboard', getInstagramDashboardStats);
 
 // Get trends data - Authenticated users

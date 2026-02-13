@@ -4,6 +4,7 @@ import {
   getExpensePaidoutData,
   getExpenseSummary,
   getExpenseCategorySummary,
+  getExpensePaidoutDetail,
 } from '../controllers/expensePaidout.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireAdmin } from '../middleware/role.middleware';
@@ -34,6 +35,9 @@ router.get('/summary', getExpenseSummary);
 
 // Get expense category summary - Authenticated users
 router.get('/category-summary', getExpenseCategorySummary);
+
+// Get expense paidout detail with month grouping - Authenticated users
+router.get('/detail', getExpensePaidoutDetail);
 
 export default router;
 

@@ -3,12 +3,13 @@ import { AuthRequest } from '../types';
 import ProcurementPurchaseOrder from '../models/procurement-purchase-order.model';
 import { syncProcurementData } from '../services/procurement-sync.service';
 import { sendErrorResponse } from '../utils/errors';
+import mongoose from 'mongoose';
 
 /**
  * Trigger manual sync of procurement purchase order data
  */
 export const syncProcurement = async (
-  req: AuthRequest,
+  _req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
@@ -315,37 +316,311 @@ export const getProcurementCardData = async (
     ]);
 
     // Calculate totals
-    const procurement = currentMonthData[0]?.total || 0;
-    const previousProcurement = previousMonthData[0]?.total || 0;
+    const currentMonthTotal = currentMonthData[0]?.total || 0;
+    const previousMonthTotal = previousMonthData[0]?.total || 0;
 
     // Calculate absolute change
-    const change = procurement - previousProcurement;
+    const changeAmount = currentMonthTotal - previousMonthTotal;
 
     // Calculate percentage change
-    let changePercentage = 0;
-    if (previousProcurement > 0) {
-      changePercentage = parseFloat(((change / previousProcurement) * 100).toFixed(1));
-    } else if (procurement > 0 && previousProcurement === 0) {
-      // If we have procurement but no previous data, show 100% increase
-      changePercentage = 100;
+    let percentageChange = 0;
+    if (previousMonthTotal === 0) {
+      percentageChange = currentMonthTotal > 0 ? 100 : 0;
+    } else {
+      percentageChange = (changeAmount / previousMonthTotal) * 100;
     }
 
     // Format month identifiers
-    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     const previousMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const previousMonth = `${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const previousMonthStr = `${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const percentageFormatted = percentageChange >= 0
+      ? `+${percentageChange.toFixed(1)}%`
+      : `${percentageChange.toFixed(1)}%`;
 
     res.status(200).json({
       success: true,
       message: 'Procurement card data retrieved successfully',
       data: {
-        procurement,
-        previousProcurement,
-        change,
-        changePercentage,
-        currentMonth,
-        previousMonth,
-        currency: 'AED',
+        currentMonth: {
+          month: currentMonthStr,
+          totalProcurement: currentMonthTotal,
+        },
+        previousMonth: {
+          month: previousMonthStr,
+          totalProcurement: previousMonthTotal,
+        },
+        change: {
+          amount: changeAmount,
+          percentage: percentageChange,
+          percentageFormatted: percentageFormatted,
+        },
+      },
+    });
+  } catch (error) {
+    sendErrorResponse(res, error as Error);
+  }
+};
+
+/**
+ * Get procurement detail with date grouping
+ * Groups data by date, calculating totals per date
+ */
+export const getProcurementDetail = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 100; // Default to 100 date groups per page
+    const skip = (page - 1) * limit;
+
+    // Filter parameters
+    const entityId = req.query.entityId as string;
+    const approvalStatus = req.query.approvalStatus as string;
+    const vendor = req.query.vendor as string; // UI uses 'vendor', model has 'venderName'
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const minAmount = parseFloat(req.query.minAmount as string);
+    const maxAmount = parseFloat(req.query.maxAmount as string);
+
+    // Build match query - exclude Draft orders
+    const match: any = {
+      approvalStatus: { $ne: 'Draft' },
+    };
+
+    // Apply entity filter
+    if (entityId && entityId.trim() !== '' && mongoose.Types.ObjectId.isValid(entityId)) {
+      match.entityId = new mongoose.Types.ObjectId(entityId);
+    } else if (entityId && entityId.trim() !== '' && !mongoose.Types.ObjectId.isValid(entityId)) {
+      // If entityId is provided but invalid, return no results
+      res.status(200).json({
+        success: true,
+        message: 'Invalid entity ID provided. No results found.',
+        data: {
+          dateGroups: [],
+          pagination: { total: 0, page, limit, totalPages: 0, hasNextPage: false, hasPrevPage: false },
+          filters: { entityId, approvalStatus, vendor, startDate, endDate, minAmount, maxAmount },
+        },
+      });
+      return;
+    }
+
+    // Apply approval status filter
+    if (approvalStatus && approvalStatus.trim() !== '') {
+      match.approvalStatus = approvalStatus;
+    }
+
+    // Apply vendor filter (search in venderName)
+    if (vendor && vendor.trim() !== '') {
+      match.venderName = { $regex: new RegExp(vendor, 'i') };
+    }
+
+    // Date range filter (using createdTimestamp)
+    if (startDate || endDate) {
+      match.createdTimestamp = {};
+      if (startDate) {
+        const from = new Date(startDate);
+        from.setUTCHours(0, 0, 0, 0);
+        match.createdTimestamp.$gte = from;
+      }
+      if (endDate) {
+        const to = new Date(endDate);
+        to.setUTCHours(23, 59, 59, 999);
+        to.setUTCMilliseconds(999);
+        match.createdTimestamp.$lte = to;
+      }
+    }
+
+    // Build aggregation pipeline
+    const pipeline: any[] = [
+      { $match: match },
+    ];
+
+    // Apply amount range filter if provided
+    if (!isNaN(minAmount) || !isNaN(maxAmount)) {
+      const amountMatch: any = {};
+      if (!isNaN(minAmount)) {
+        amountMatch.$gte = minAmount;
+      }
+      if (!isNaN(maxAmount)) {
+        amountMatch.$lte = maxAmount;
+      }
+      pipeline.push({ $match: { totalAmount: amountMatch } });
+    }
+
+    // Get total count of unique dates matching filters before grouping and pagination
+    const countPipeline = [
+      ...pipeline,
+      {
+        $addFields: {
+          dateStr: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$createdTimestamp',
+            },
+          },
+        },
+      },
+      { $group: { _id: '$dateStr' } },
+      { $count: 'total' }
+    ];
+    const countResult = await ProcurementPurchaseOrder.aggregate(countPipeline);
+    const total = countResult[0]?.total || 0;
+
+    // Group by date and calculate totals
+    pipeline.push(
+      {
+        $addFields: {
+          dateStr: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$createdTimestamp',
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$dateStr',
+          date: { $first: '$dateStr' },
+          totalAmount: { $sum: '$totalAmount' },
+          orderIds: { $push: '$_id' },
+        },
+      },
+      { $sort: { date: -1 } }, // Sort dates descending
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'procurementpurchaseorders',
+          localField: 'orderIds',
+          foreignField: '_id',
+          as: 'orders',
+        },
+      },
+      {
+        $lookup: {
+          from: 'entities',
+          localField: 'orders.entityId',
+          foreignField: '_id',
+          as: 'entityData',
+        },
+      },
+      {
+        $addFields: {
+          orders: {
+            $map: {
+              input: '$orders',
+              as: 'order',
+              in: {
+                $mergeObjects: [
+                  '$$order',
+                  {
+                    entityId: {
+                      $let: {
+                        vars: {
+                          matchedEntity: {
+                            $arrayElemAt: [
+                              {
+                                $filter: {
+                                  input: '$entityData',
+                                  as: 'entity',
+                                  cond: { $eq: ['$$entity._id', '$$order.entityId'] },
+                                },
+                              },
+                              0,
+                            ],
+                          },
+                        },
+                        in: {
+                          $cond: {
+                            if: { $ne: ['$$matchedEntity', null] },
+                            then: {
+                              _id: '$$matchedEntity._id',
+                              entityName: '$$matchedEntity.entityName',
+                              entityCode: '$$matchedEntity.entityCode',
+                            },
+                            else: null,
+                          },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: 1,
+          totalAmount: 1,
+          orders: {
+            $map: {
+              input: '$orders',
+              as: 'order',
+              in: {
+                _id: '$$order._id',
+                purchId: '$$order.purchId',
+                entityId: '$$order.entityId',
+                venderAccount: '$$order.venderAccount',
+                venderName: '$$order.venderName',
+                totalAmount: '$$order.totalAmount',
+                purchaseOrderStatus: '$$order.purchaseOrderStatus',
+                approvalStatus: '$$order.approvalStatus',
+                createdTimestamp: {
+                  $cond: {
+                    if: { $eq: [{ $type: '$$order.createdTimestamp' }, 'date'] },
+                    then: {
+                      $dateToString: {
+                        format: '%Y-%m-%dT%H:%M:%S.%LZ',
+                        date: '$$order.createdTimestamp',
+                      },
+                    },
+                    else: '$$order.createdTimestamp',
+                  },
+                },
+                currency: '$$order.currency',
+                dataAreaId: '$$order.dataAreaId',
+              },
+            },
+          },
+        },
+      },
+      { $sort: { date: -1 } } // Final sort by date descending
+    );
+
+    const dateGroups = await ProcurementPurchaseOrder.aggregate(pipeline);
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      success: true,
+      message: 'Procurement detail retrieved successfully',
+      data: {
+        dateGroups,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+        filters: {
+          entityId: entityId || null,
+          approvalStatus: approvalStatus || null,
+          vendor: vendor || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          minAmount: minAmount || null,
+          maxAmount: maxAmount || null,
+        },
       },
     });
   } catch (error) {

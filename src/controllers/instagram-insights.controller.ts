@@ -109,30 +109,56 @@ export const getInstagramInsights = async (
 
 /**
  * Get Instagram dashboard stats (latest snapshot with month-to-date)
+ * Returns: Total followers, Yesterday's new followers and reach, Month-to-date sum
  */
 export const getInstagramDashboardStats = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
-    // Get latest record for Instagram
-    const latest = await InstagramInsights.findOne({
-      platform: 'INSTAGRAM',
-    }).sort({ date: -1, updatedAt: -1 });
+    const entityId = req.query.entityId as string | undefined;
 
-    if (!latest) {
-      res.status(200).json({
-        success: true,
-        data: {
-          totalFollowers: 0,
-          newFollowers: 0,
-          reach: 0,
-          posts: 0,
-          monthToDateFollowers: 0,
-        },
-      });
-      return;
+    // Build base match query
+    const baseMatch: any = {
+      platform: 'INSTAGRAM',
+    };
+
+    // Apply entity filter only if provided and valid
+    // If entityId is empty or invalid, show aggregate data (all entities)
+    if (entityId && typeof entityId === 'string' && entityId.trim() !== '') {
+      if (mongoose.Types.ObjectId.isValid(entityId)) {
+        baseMatch.entity = new mongoose.Types.ObjectId(entityId);
+      }
+      // If entityId is provided but invalid, we'll query without entity filter (aggregate)
     }
+
+    // Get latest record for Instagram (for total followers)
+    const latest = await InstagramInsights.findOne(baseMatch)
+      .sort({ date: -1, updatedAt: -1 });
+
+    // Calculate yesterday's date range
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    today.setUTCMilliseconds(0);
+
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(today.getUTCDate() - 1);
+    yesterday.setUTCHours(0, 0, 0, 0);
+    yesterday.setUTCMilliseconds(0);
+
+    const yesterdayEnd = new Date(yesterday);
+    yesterdayEnd.setUTCHours(23, 59, 59, 999);
+    yesterdayEnd.setUTCMilliseconds(999);
+
+    // Get yesterday's record
+    const yesterdayMatch = {
+      ...baseMatch,
+      date: {
+        $gte: yesterday,
+        $lte: yesterdayEnd,
+      },
+    };
+    const yesterdayRecord = await InstagramInsights.findOne(yesterdayMatch);
 
     // Calculate Month-To-Date range
     const now = new Date();
@@ -140,29 +166,40 @@ export const getInstagramDashboardStats = async (
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
     );
 
-    // Get first record of this month (at or after month start)
-    const startOfMonthRecord = await InstagramInsights.findOne({
-      platform: 'INSTAGRAM',
-      date: { $gte: monthStart },
-    }).sort({ date: 1 }); // earliest in month
+    // Sum all newFollowers from month start to now (including today)
+    const monthToDateMatch = {
+      ...baseMatch,
+      date: {
+        $gte: monthStart,
+        $lte: now,
+      },
+    };
 
-    let monthToDateFollowers = 0;
-    if (startOfMonthRecord) {
-      monthToDateFollowers =
-        latest.totalFollower - startOfMonthRecord.totalFollower;
-      if (monthToDateFollowers < 0) monthToDateFollowers = 0; // safety guard
-    }
+    const monthToDateResult = await InstagramInsights.aggregate([
+      {
+        $match: monthToDateMatch,
+      },
+      {
+        $group: {
+          _id: null,
+          totalNewFollowers: { $sum: '$newFollowers' },
+        },
+      },
+    ]);
+
+    const monthToDate = monthToDateResult[0]?.totalNewFollowers || 0;
 
     // Return formatted response
     res.status(200).json({
       success: true,
       data: {
-        totalFollowers: latest.totalFollower,
-        newFollowers: latest.newFollowers,
-        reach: latest.totalReach,
-        posts: latest.posts || 0,
-        lastSync: latest.lastSyncDateTime,
-        monthToDateFollowers,
+        totalFollowers: latest?.totalFollower || 0,
+        yesterday: {
+          newFollowers: yesterdayRecord?.newFollowers || 0,
+          newReach: yesterdayRecord?.newReach || 0,
+        },
+        monthToDate,
+        lastSync: latest?.lastSyncDateTime || null,
       },
     });
   } catch (error) {

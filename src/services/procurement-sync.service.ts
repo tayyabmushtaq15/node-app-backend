@@ -83,6 +83,7 @@ export const syncProcurementData = async (): Promise<SyncResult> => {
 
     // Get yesterday's date in yyyy-mm-dd format
     const yesterdayDate = getYesterdayDate();
+    // const yesterdayDate = '2025-06-13';
     console.log(`📅 Syncing data for date: ${yesterdayDate}`);
 
     // Get all existing purchase order IDs in one query
@@ -106,14 +107,18 @@ export const syncProcurementData = async (): Promise<SyncResult> => {
             entity.entityCode
           );
 
-          if (!procurementData || procurementData.length === 0) {
-            console.log(`⚠️ No procurement data received for entity ${entity.entityCode}`);
-            return;
+          const normalizedData = Array.isArray(procurementData)
+          ? procurementData
+          : (procurementData as any)?.Responses || [];
+
+          if (normalizedData.length === 0) {
+          console.log(`⚠️ No procurement data received for entity ${entity.entityCode}`);
+          return;
           }
 
           // Transform API data
           const records = transformApiData(
-            procurementData,
+            normalizedData,
             entity._id,
             entity.entityCode
           );

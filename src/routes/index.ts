@@ -10,6 +10,7 @@ import salesCollectionRoutes from './salesCollection.routes';
 import revenueReservationRoutes from './revenue-reservation.routes';
 import instagramInsightsRoutes from './instagram-insights.routes';
 import googleReviewRoutes from './google-review.routes';
+import entitiesRoutes from './entities.routes';
 
 /**
  * Route configuration interface
@@ -34,6 +35,7 @@ export const routes: RouteConfig[] = [
   { path: '/api/revenue-reservation', router: revenueReservationRoutes },
   { path: '/api/instagram-insights', router: instagramInsightsRoutes },
   { path: '/api/google-reviews', router: googleReviewRoutes },
+  { path: '/api/entities', router: entitiesRoutes },
 ];
 
 export default routes;

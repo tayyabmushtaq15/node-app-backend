@@ -3,6 +3,7 @@ import {
   syncSalesCollection,
   getSalesCollectionData,
   getSalesCollectionSummary,
+  getSalesCollectionDetail,
   getSalesCollectionChartData,
 } from '../controllers/salesCollection.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -31,6 +32,9 @@ router.get('/', getSalesCollectionData);
 
 // Get sales collection summary - Authenticated users
 router.get('/summary', getSalesCollectionSummary);
+
+// Get sales collection detail with date grouping - Authenticated users
+router.get('/detail', getSalesCollectionDetail);
 
 // Get sales collection chart data - Authenticated users
 router.get('/chart-data', getSalesCollectionChartData);

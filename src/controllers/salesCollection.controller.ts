@@ -228,91 +228,471 @@ export const getSalesCollectionData = async (
 
 /**
  * Get sales collection summary statistics
- * Returns yesterday vs day before, total collection
+ * Returns yesterday vs day before yesterday, using Grand Summary records if available
  */
 export const getSalesCollectionSummary = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
-    const entityId = req.query.entityId as string | undefined;
+    const projectId = req.query.projectId as string | undefined;
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     // Yesterday
     const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
+    yesterday.setUTCDate(today.getUTCDate() - 1);
+    yesterday.setUTCHours(0, 0, 0, 0);
+
+    const yesterdayEnd = new Date(yesterday);
+    yesterdayEnd.setUTCHours(23, 59, 59, 999);
+    yesterdayEnd.setUTCMilliseconds(999);
 
     // Day before yesterday
     const dayBeforeYesterday = new Date(yesterday);
-    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1);
-    dayBeforeYesterday.setHours(0, 0, 0, 0);
+    dayBeforeYesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    dayBeforeYesterday.setUTCHours(0, 0, 0, 0);
 
-    const match: any = {
-      // Exclude special types
-      $or: [
-        { specialType: { $exists: false } },
-        { specialType: null },
-        { specialType: { $nin: ['Grand Summary', 'No Value'] } },
-      ],
-    };
+    const dayBeforeYesterdayEnd = new Date(dayBeforeYesterday);
+    dayBeforeYesterdayEnd.setUTCHours(23, 59, 59, 999);
+    dayBeforeYesterdayEnd.setUTCMilliseconds(999);
 
-    if (entityId) {
-      match.entity = new mongoose.Types.ObjectId(entityId);
-    }
+    // Helper to get collection data for a specific date
+    // First try to get Grand Summary, if not available, sum regular records
+    const getCollectionForDate = async (targetDate: Date, targetDateEnd: Date) => {
+      // Try to get Grand Summary record first
+      const grandSummaryMatch: any = {
+        specialType: 'Grand Summary',
+        date: {
+          $gte: targetDate,
+          $lte: targetDateEnd,
+        },
+      };
 
-    // Helper to aggregate total collections for a specific date
-    const aggregateTotalCollections = async (targetDate: Date): Promise<number> => {
-      const startOfDay = new Date(targetDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
+        // If project filter is provided, we can't use Grand Summary (it's aggregate)
+        // Fall through to regular records aggregation
+      } else {
+        const grandSummary = await SalesCollection.findOne(grandSummaryMatch);
+        if (grandSummary) {
+          return {
+            escrowCollection: grandSummary.escrowCollection || 0,
+            nonEscrowCollection: grandSummary.nonEscrowCollection || 0,
+            totalCollection: (grandSummary.escrowCollection || 0) + (grandSummary.nonEscrowCollection || 0),
+          };
+        }
+      }
 
-      const endOfDay = new Date(targetDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Fallback: aggregate regular records (exclude special types)
+      const regularMatch: any = {
+        $or: [
+          { specialType: { $exists: false } },
+          { specialType: null },
+          { specialType: { $nin: ['Grand Summary', 'No Value'] } },
+        ],
+        date: {
+          $gte: targetDate,
+          $lte: targetDateEnd,
+        },
+      };
+
+      if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
+        regularMatch.project = new mongoose.Types.ObjectId(projectId);
+      }
 
       const result = await SalesCollection.aggregate([
         {
-          $match: {
-            ...match,
-            date: {
-              $gte: startOfDay,
-              $lte: endOfDay,
-            },
-          },
+          $match: regularMatch,
         },
         {
           $group: {
             _id: null,
-            total: {
+            escrowCollection: { $sum: '$escrowCollection' },
+            nonEscrowCollection: { $sum: '$nonEscrowCollection' },
+            totalCollection: {
               $sum: { $add: ['$escrowCollection', '$nonEscrowCollection'] },
             },
           },
         },
       ]);
 
-      return result[0]?.total || 0;
+      return result[0] || {
+        escrowCollection: 0,
+        nonEscrowCollection: 0,
+        totalCollection: 0,
+      };
     };
 
-    // Get yesterday's and day before yesterday's totals
-    const [yesterdayTotal, dayBeforeTotal] = await Promise.all([
-      aggregateTotalCollections(yesterday),
-      aggregateTotalCollections(dayBeforeYesterday),
+    // Get data for both days in parallel
+    const [yesterdayData, previousDayData] = await Promise.all([
+      getCollectionForDate(yesterday, yesterdayEnd),
+      getCollectionForDate(dayBeforeYesterday, dayBeforeYesterdayEnd),
     ]);
 
+    const yesterdayTotal = yesterdayData.totalCollection;
+    const previousDayTotal = previousDayData.totalCollection;
+
     // Calculate percentage change
-    const changePercent =
-      dayBeforeTotal > 0
-        ? Number((((yesterdayTotal - dayBeforeTotal) / dayBeforeTotal) * 100).toFixed(1))
-        : 0;
+    let percentageChange = 0;
+    if (previousDayTotal === 0) {
+      percentageChange = yesterdayTotal > 0 ? 100 : 0;
+    } else {
+      percentageChange = ((yesterdayTotal - previousDayTotal) / previousDayTotal) * 100;
+    }
+
+    const changeAmount = yesterdayTotal - previousDayTotal;
+    const percentageFormatted = percentageChange >= 0
+      ? `+${percentageChange.toFixed(1)}%`
+      : `${percentageChange.toFixed(1)}%`;
 
     res.status(200).json({
       success: true,
       message: 'Sales collection summary retrieved successfully',
       data: {
-        totalCollection: yesterdayTotal,
-        yesterdayData: {
-          amount: yesterdayTotal,
-          changePercent,
+        yesterday: {
+          date: yesterday.toISOString().split('T')[0],
+          totalCollection: yesterdayTotal,
+          escrowCollection: yesterdayData.escrowCollection,
+          nonEscrowCollection: yesterdayData.nonEscrowCollection,
+        },
+        previousDay: {
+          date: dayBeforeYesterday.toISOString().split('T')[0],
+          totalCollection: previousDayTotal,
+          escrowCollection: previousDayData.escrowCollection,
+          nonEscrowCollection: previousDayData.nonEscrowCollection,
+        },
+        change: {
+          amount: changeAmount,
+          percentage: percentageChange,
+          percentageFormatted: percentageFormatted,
+        },
+      },
+    });
+  } catch (error) {
+    sendErrorResponse(res, error as Error);
+  }
+};
+
+/**
+ * Get sales collection detail with date grouping
+ * Groups data by date, using Grand Summary for totals and regular records for detail
+ */
+export const getSalesCollectionDetail = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 100; // Default to 100 date groups per page
+    const skip = (page - 1) * limit;
+
+    // Filter parameters
+    const projectId = req.query.projectId as string;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const minTotalCollection = parseFloat(req.query.minTotalCollection as string);
+    const maxTotalCollection = parseFloat(req.query.maxTotalCollection as string);
+
+    // Build match query - exclude 'No Value' records
+    const match: any = {
+      $or: [
+        { specialType: { $exists: false } },
+        { specialType: null },
+        { specialType: { $nin: ['No Value'] } },
+      ],
+    };
+
+    // Apply project filter (only affects regular records, not Grand Summary)
+    if (projectId && projectId.trim() !== '' && mongoose.Types.ObjectId.isValid(projectId)) {
+      match.project = new mongoose.Types.ObjectId(projectId);
+    } else if (projectId && projectId.trim() !== '' && !mongoose.Types.ObjectId.isValid(projectId)) {
+      // If projectId is provided but invalid, return no results
+      res.status(200).json({
+        success: true,
+        message: 'Invalid project ID provided. No results found.',
+        data: {
+          dateGroups: [],
+          pagination: { total: 0, page, limit, totalPages: 0, hasNextPage: false, hasPrevPage: false },
+          filters: { projectId, startDate, endDate, minTotalCollection, maxTotalCollection },
+        },
+      });
+      return;
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+      match.date = {};
+      if (startDate) {
+        const from = new Date(startDate);
+        from.setUTCHours(0, 0, 0, 0);
+        match.date.$gte = from;
+      }
+      if (endDate) {
+        const to = new Date(endDate);
+        to.setUTCHours(23, 59, 59, 999);
+        to.setUTCMilliseconds(999);
+        match.date.$lte = to;
+      }
+    }
+
+    // Build aggregation pipeline
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $addFields: {
+          totalCollection: {
+            $add: ['$escrowCollection', '$nonEscrowCollection'],
+          },
+        },
+      },
+    ];
+
+    // Apply total collection range filter if provided
+    if (!isNaN(minTotalCollection) || !isNaN(maxTotalCollection)) {
+      const collectionMatch: any = {};
+      if (!isNaN(minTotalCollection)) {
+        collectionMatch.$gte = minTotalCollection;
+      }
+      if (!isNaN(maxTotalCollection)) {
+        collectionMatch.$lte = maxTotalCollection;
+      }
+      pipeline.push({ $match: { totalCollection: collectionMatch } });
+    }
+
+    // Get total count of unique dates matching filters before grouping and pagination
+    const countPipeline = [
+      ...pipeline,
+      { $group: { _id: '$date' } },
+      { $count: 'total' }
+    ];
+    const countResult = await SalesCollection.aggregate(countPipeline);
+    const total = countResult[0]?.total || 0;
+
+    // Separate Grand Summary records from regular records and group by date
+    pipeline.push(
+      {
+        $group: {
+          _id: '$date',
+          date: { $first: '$date' },
+          // Store Grand Summary record separately
+          grandSummaryRecord: {
+            $push: {
+              $cond: [
+                { $eq: ['$specialType', 'Grand Summary'] },
+                {
+                  _id: '$_id',
+                  escrowCollection: '$escrowCollection',
+                  nonEscrowCollection: '$nonEscrowCollection',
+                  totalCollection: '$totalCollection',
+                  Currency: '$Currency',
+                  dataSource: '$dataSource',
+                  lastSyncDateTime: '$lastSyncDateTime',
+                  createdAt: '$createdAt',
+                  updatedAt: '$updatedAt',
+                },
+                '$$REMOVE',
+              ],
+            },
+          },
+          // Store regular record IDs (no specialType or specialType != 'Grand Summary')
+          regularRecordIds: {
+            $push: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$specialType', null] },
+                    { $not: { $eq: ['$specialType', 'Grand Summary'] } },
+                  ],
+                },
+                '$_id',
+                '$$REMOVE',
+              ],
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          // Extract Grand Summary record (should be only one)
+          grandSummary: { $arrayElemAt: ['$grandSummaryRecord', 0] },
+        },
+      },
+      {
+        $addFields: {
+          // Use Grand Summary for summary totals, fallback to 0 if not exists
+          escrowCollection: {
+            $ifNull: ['$grandSummary.escrowCollection', 0],
+          },
+          nonEscrowCollection: {
+            $ifNull: ['$grandSummary.nonEscrowCollection', 0],
+          },
+          totalCollection: {
+            $ifNull: ['$grandSummary.totalCollection', 0],
+          },
+        },
+      },
+      { $sort: { date: -1 } }, // Sort dates descending
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'salescollections',
+          localField: 'regularRecordIds',
+          foreignField: '_id',
+          as: 'regularRecords',
+        },
+      },
+      {
+        $unwind: {
+          path: '$regularRecords',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: 'regularRecords.project',
+          foreignField: '_id',
+          as: 'projectData',
+        },
+      },
+      {
+        $lookup: {
+          from: 'entities',
+          localField: 'regularRecords.entity',
+          foreignField: '_id',
+          as: 'entityData',
+        },
+      },
+      {
+        $addFields: {
+          'regularRecords.project': {
+            $cond: {
+              if: { $gt: [{ $size: '$projectData' }, 0] },
+              then: {
+                _id: { $arrayElemAt: ['$projectData._id', 0] },
+                projectName: { $arrayElemAt: ['$projectData.projectName', 0] },
+                projectShortName: { $arrayElemAt: ['$projectData.projectShortName', 0] },
+              },
+              else: null,
+            },
+          },
+          'regularRecords.entity': {
+            $cond: {
+              if: { $gt: [{ $size: '$entityData' }, 0] },
+              then: {
+                _id: { $arrayElemAt: ['$entityData._id', 0] },
+                entityName: { $arrayElemAt: ['$entityData.entityName', 0] },
+                entityCode: { $arrayElemAt: ['$entityData.entityCode', 0] },
+              },
+              else: null,
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$date',
+          date: { $first: '$date' },
+          escrowCollection: { $first: '$escrowCollection' },
+          nonEscrowCollection: { $first: '$nonEscrowCollection' },
+          totalCollection: { $first: '$totalCollection' },
+          records: {
+            $push: {
+              $cond: [
+                { $ne: ['$regularRecords', null] },
+                {
+                  _id: '$regularRecords._id',
+                  entity: '$regularRecords.entity',
+                  project: '$regularRecords.project',
+                  date: '$regularRecords.date',
+                  escrowCollection: '$regularRecords.escrowCollection',
+                  nonEscrowCollection: '$regularRecords.nonEscrowCollection',
+                  totalCollection: '$regularRecords.totalCollection',
+                  Currency: '$regularRecords.Currency',
+                  dataSource: '$regularRecords.dataSource',
+                  lastSyncDateTime: '$regularRecords.lastSyncDateTime',
+                  createdAt: '$regularRecords.createdAt',
+                  updatedAt: '$regularRecords.updatedAt',
+                },
+                '$$REMOVE',
+              ],
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          date: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$date',
+            },
+          },
+          records: {
+            $map: {
+              input: '$records',
+              as: 'record',
+              in: {
+                $mergeObjects: [
+                  '$$record',
+                  {
+                    date: {
+                      $cond: {
+                        if: { $eq: [{ $type: '$$record.date' }, 'date'] },
+                        then: {
+                          $dateToString: {
+                            format: '%Y-%m-%d',
+                            date: '$$record.date',
+                          },
+                        },
+                        else: '$$record.date',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: 1,
+          escrowCollection: 1,
+          nonEscrowCollection: 1,
+          totalCollection: 1,
+          records: 1,
+        },
+      },
+      { $sort: { date: -1 } } // Final sort by date descending
+    );
+
+    const dateGroups = await SalesCollection.aggregate(pipeline);
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      success: true,
+      message: 'Sales collection detail retrieved successfully',
+      data: {
+        dateGroups,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+        filters: {
+          projectId: projectId || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          minTotalCollection: minTotalCollection || null,
+          maxTotalCollection: maxTotalCollection || null,
         },
       },
     });
