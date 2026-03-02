@@ -510,6 +510,13 @@ export const getSalesCollectionDetail = async (
               ],
             },
           },
+          // Sum escrow/nonEscrow from non–Grand Summary docs for fallback when no Grand Summary
+          sumEscrowRegular: {
+            $sum: { $cond: [{ $ne: ['$specialType', 'Grand Summary'] }, '$escrowCollection', 0] },
+          },
+          sumNonEscrowRegular: {
+            $sum: { $cond: [{ $ne: ['$specialType', 'Grand Summary'] }, '$nonEscrowCollection', 0] },
+          },
         },
       },
       {
@@ -520,15 +527,18 @@ export const getSalesCollectionDetail = async (
       },
       {
         $addFields: {
-          // Use Grand Summary for summary totals, fallback to 0 if not exists
+          // Use Grand Summary for summary totals, fallback to sum of regular records if not exists
           escrowCollection: {
-            $ifNull: ['$grandSummary.escrowCollection', 0],
+            $ifNull: ['$grandSummary.escrowCollection', '$sumEscrowRegular'],
           },
           nonEscrowCollection: {
-            $ifNull: ['$grandSummary.nonEscrowCollection', 0],
+            $ifNull: ['$grandSummary.nonEscrowCollection', '$sumNonEscrowRegular'],
           },
           totalCollection: {
-            $ifNull: ['$grandSummary.totalCollection', 0],
+            $ifNull: [
+              '$grandSummary.totalCollection',
+              { $add: ['$sumEscrowRegular', '$sumNonEscrowRegular'] },
+            ],
           },
         },
       },
